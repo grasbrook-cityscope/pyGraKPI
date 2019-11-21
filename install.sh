@@ -1,3 +1,3 @@
 #!/bin/sh
 
-docker build -t=gracio_pystocs .
+docker build -t=gracio_pygrakpi .
