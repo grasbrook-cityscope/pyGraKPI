@@ -90,9 +90,9 @@ def run(token=None):
             if curusen and curlevels > 1:
                 if curusen in typejs["buildinguses"]["living"]:
                     bld_living += gridDef.cellSize*gridDef.cellSize * (curlevels - 1)
-                if curuse1 in typejs["buildinguses"]["commerce"]:
+                if curusen in typejs["buildinguses"]["commerce"]:
                     bld_commerce += gridDef.cellSize*gridDef.cellSize * (curlevels - 1)
-                if curuse1 in typejs["buildinguses"]["special"]:
+                if curusen in typejs["buildinguses"]["special"]:
                     bld_special += gridDef.cellSize*gridDef.cellSize * (curlevels - 1)
         
         elif curtype == "open_space":
