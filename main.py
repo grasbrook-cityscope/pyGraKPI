@@ -1,6 +1,6 @@
 import json
-import urllib.request 
 import time
+import requests
 
 def getFromCfg(key : str) -> str:
     #import os#os.path.dirname(os.path.realpath(__file__)+
@@ -8,10 +8,18 @@ def getFromCfg(key : str) -> str:
         js = json.load(file)
         return js[key]
 
-def getCurrentState(topic=""):
-    with urllib.request.urlopen(getFromCfg("input_url")+topic) as url:    # todo: do with requests instead of urllib
-        return json.loads(url.read().decode())
-    return None
+def getCurrentState(topic="", token=None):
+    get_address = getFromCfg("input_url")+topic
+    if token is None:
+        r = requests.get(get_address, headers={'Content-Type': 'application/json'})
+    else:
+        r = requests.get(get_address, headers={'Content-Type': 'application/json', 'Authorization': 'Bearer '+token})
+    
+    if not r.status_code == 200:
+        print("could not get from cityIO")
+        print("Error code", r.status_code)
+
+    return r.json()
 
 class Table:
     cellSize = 0
@@ -28,11 +36,13 @@ class Table:
         ret.typeidx = data["block"].index("type")
         return ret
 
-def sendToCityIO(data):
+def sendToCityIO(data, token=None):
     post_address = getFromCfg("output_url")
 
-    import requests
-    r = requests.post(post_address, json=data, headers={'Content-Type': 'application/json'})
+    if token is None:
+        r = requests.post(post_address, json=data, headers={'Content-Type': 'application/json'})
+    else:
+        r = requests.post(post_address, json=data, headers={'Content-Type': 'application/json', 'Authorization': 'Bearer '+token})
     print(r)
     if not r.status_code == 200:
         print("could not post result to cityIO")
@@ -40,14 +50,14 @@ def sendToCityIO(data):
     else:
         print("Successfully posted to cityIO", r.status_code)
 
-def run():
-    gridDef = Table.fromCityIO(getCurrentState("header"))
+def run(token=None):
+    gridDef = Table.fromCityIO(getCurrentState("header",token))
     if not gridDef:
         print("couldn't load input_url!")
         exit()
 
-    gridData = getCurrentState("grid")
-    gridHash = getCurrentState("meta/hashes/grid")
+    gridData = getCurrentState("grid",token)
+    gridHash = getCurrentState("meta/hashes/grid",token)
 
     typejs = {}
     with open("typedefs.json") as file:
@@ -104,14 +114,21 @@ def run():
 
     print(data)
 
-    sendToCityIO(data)
+    sendToCityIO(data,token)
     
 
 if __name__ == "__main__":
     oldHash = ""
 
+    try:
+        with open("token.txt") as f:
+            token=f.readline()
+        if token=="": token = None # happens with empty file
+    except IOError:
+        token=None
+
     while True:
-        gridHash = getCurrentState("meta/hashes/grid")
+        gridHash = getCurrentState("meta/hashes/grid",token)
         if gridHash != oldHash:
             run()
             oldHash = gridHash
