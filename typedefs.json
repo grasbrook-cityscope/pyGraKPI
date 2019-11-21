@@ -7,7 +7,7 @@
     "openspacetypes" : {
         "green" : ["green_space"],
         "sports": ["athletic_field"],
-        "playgrounds":["daycare_playground","playground"],
-        "other":["exhibition_space","recycling_center","promenade","water","schoolyard"]
+        "playgrounds":["daycare_playground","playground","schoolyard"],
+        "other":["exhibition_space","recycling_center","promenade","water"]
     }
 }
