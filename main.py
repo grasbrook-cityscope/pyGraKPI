@@ -38,6 +38,7 @@ def getCurrentState(topic="", endpoint=-1, token=None):
     if not r.status_code == 200:
         print("could not get from cityIO")
         print("Error code", r.status_code)
+        return {}
 
     return r.json()
 
@@ -142,9 +143,9 @@ if __name__ == "__main__":
 
     while True:
         gridHash = getCurrentState("meta/hashes/grid", int(args.endpoint), token)
-        if gridHash != oldHash:
+        if gridHash != {} and gridHash != oldHash:
             run(int(args.endpoint))
             oldHash = gridHash
         else:
             print("waiting for grid change")
-            time.sleep(10)
+            time.sleep(5)
