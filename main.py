@@ -2,6 +2,7 @@ import json
 import time
 import requests
 import argparse
+from typing import Optional
 
 
 class Table:
@@ -25,6 +26,17 @@ def getFromCfg(key: str) -> str:
     with open("config.json") as file:
         js = json.load(file)
         return js[key]
+
+
+# returns the token for the endpoint
+# tokens.json is to be requested from admin
+def getToken(endpoint=-1) -> Optional[str]:
+    if endpoint == -1:
+        return None
+
+    with open("tokens.json") as file:
+        js = json.load(file)
+        return js['tokens'][endpoint]
 
 
 def getCurrentState(topic="", endpoint=-1, token=None):
@@ -139,15 +151,9 @@ if __name__ == "__main__":
     parser.add_argument('--endpoint', type=int, default=-1, help="endpoint url to choose from config.ini/input_urls")
     args = parser.parse_args()
     print("endpoint", args.endpoint)
+    token = getToken(args.endpoint)
 
     oldHash = ""
-
-    try:
-        with open("token.txt") as f:
-            token = f.readline()
-        if token == "": token = None  # happens with empty file
-    except IOError:
-        token = None
 
     while True:
         gridHash = getCurrentState("meta/hashes/grid", int(args.endpoint), token)
