@@ -10,5 +10,5 @@ else # no command line args -> don't choose endpoint
     docker stop gracio_pygrakpi_instance
     docker rm gracio_pygrakpi_instance
     docker run --name gracio_pygrakpi_instance -d gracio_pygrakpi
-    docker logs -f gracio_pygrakpi_instance
+    #docker logs -f gracio_pygrakpi_instance
 fi
