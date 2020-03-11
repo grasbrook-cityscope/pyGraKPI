@@ -1,3 +1,8 @@
+# token.json
+tokens.json
+token.txt
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -89,6 +94,9 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# pyCharm idea folder
+.idea/
 
 # Spyder project settings
 .spyderproject
