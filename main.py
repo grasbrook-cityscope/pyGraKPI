@@ -589,7 +589,7 @@ def run(endpoint=-1, token=None):
             "green": os_green, "green_expected": 80000,
             "sports": os_sports, "sports_expected": 10000,
             "playgrounds": os_play, "playgrounds_expected": 10000,
-            "features": geojson['features'],
+            "geojson": geojson,
             "grid_hash": gridHash}
 
     sendToCityIO(data, endpoint, token)
@@ -599,12 +599,12 @@ def makeGeoJSON(gridData, cityio):
     resultjson = "{\"type\": \"FeatureCollection\",\"features\": [" # geojson front matter
 
     # append features for all grid cells
-    resultjson += appendPolyFeatures(gridData, cityio)
+    resultjson += appendPointFeatures(gridData, cityio)
 
     resultjson += "]}" # geojson end matter
     return resultjson
 
-def appendPolyFeatures(gridData, cityio):
+def appendPointFeatures(gridData, cityio):
     filledGrid = list(gridData)
     resultjson = ""
 
@@ -615,40 +615,25 @@ def appendPolyFeatures(gridData, cityio):
 
         properties = {}
 
-        pointlist = []
+        centerPoint = cityio.Local2Geo((x + 0.5),(y + 0.5)) # upper left
+        centerPoint = proj.transform(centerPoint[1],centerPoint[0])
 
-        fromPoint = cityio.Local2Geo(x,y) # upper left
-        fromPoint = proj.transform(fromPoint[0],fromPoint[1])
-        pointlist.append(fromPoint)
-
-        toPoint = cityio.Local2Geo(x+1,y) # upper right
-        toPoint = proj.transform(toPoint[0],toPoint[1])
-        pointlist.append(toPoint)
-        toPoint = cityio.Local2Geo(x+1,y+1) # bottom right
-        toPoint = proj.transform(toPoint[0],toPoint[1])
-        pointlist.append(toPoint)
-        toPoint = cityio.Local2Geo(x,y+1) # bottom left
-        toPoint = proj.transform(toPoint[0],toPoint[1])
-        pointlist.append(toPoint)
-
-        resultjson += PolyToGeoJSON(pointlist, idx, properties) # append feature, closes loop
+        resultjson += PolyToGeoJSON(centerPoint, idx, properties) # append feature, closes loop
         resultjson +=","
 
     resultjson = resultjson[:-1] # trim trailing comma
     return resultjson
 
 
-def PolyToGeoJSON(points, id, properties):
+def PolyToGeoJSON(point, id, properties):
+
     ret = "{\"type\": \"Feature\",\"id\": \""
     ret += str(id)
-    ret += "\",\"geometry\": {\"type\": \"Polygon\",\"coordinates\": [["
+    ret += "\",\"geometry\": {\"type\": \"Point\",\"coordinates\": ["
 
-    # lat,lon order
-    for p in points:
-        ret+="["+str(p[1])+","+str(p[0])+"],"
-    ret+="["+str(points[0][1])+","+str(points[0][0])+"]" # closed ring, last one without trailing comma
+    ret += str(point[1]) + "," + str(point[0])
 
-    ret += "]]},"
+    ret += "]},"
     ret += "\"properties\": {"
     for key in properties: # properties to string
         ret += "\""+key+"\""
@@ -666,12 +651,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print("endpoint", args.endpoint)
 
-    try:
-        with open("token.txt") as f:
-            token = f.readline()
-        if token == "": token = None  # happens with empty file
-    except IOError:
-        token = None
+    token = None
+    # try:
+    #     with open("token.txt") as f:
+    #         token = f.readline()
+    #     if token == "": token = None  # happens with empty file
+    # except IOError:
+    #     token = None
 
     oldHash = ""
 
