@@ -114,7 +114,9 @@ def run(endpoint=-1, token=None):
 
     gridData = getCurrentState("grid", endpoint, token)
     gridHash = getCurrentState("meta/hashes/grid", endpoint, token)
-    geojson = json.loads(makeGeoJSON(gridData, gridDef))
+    groundFloorFeatures = json.loads(makePointFeatures(gridData, gridDef))
+    upperFloorsFeatures = json.loads(makePointFeatures(gridData, gridDef))
+
 
     typejs = {}
     with open("typedefs.json") as file:
@@ -137,22 +139,31 @@ def run(endpoint=-1, token=None):
             curusen = gridDef.mapping[cell[gridDef.typeidx]]["bld_useUpper"]
             curlevels = gridDef.mapping[cell[gridDef.typeidx]]["bld_numLevels"]
 
-            geojson['features'][cell_id]['properties'] = {
-               "bld_useGround": curuse1,
-               "bld_useUpper": curusen,
-               "bld_numLevels": curlevels
-           }
+
 
             # ground floor uses
             if curuse1 and curlevels > 0:
+                # add to visualization features
+                groundFloorFeatures[cell_id]['properties'] = {
+                    "bld_use": curuse1,
+                    "bld_numLevels": 0
+                }
+                # add to calculation result
                 if curuse1 in typejs["buildinguses"]["living"]:
                     bld_living += gridDef.cellSize * gridDef.cellSize
                 if curuse1 in typejs["buildinguses"]["commerce"]:
                     bld_commerce += gridDef.cellSize * gridDef.cellSize
                 if curuse1 in typejs["buildinguses"]["special"]:
                     bld_special += gridDef.cellSize * gridDef.cellSize
+
             # upper floor uses
             if curusen and curlevels > 1:
+                # add to visualization features
+                upperFloorsFeatures[cell_id]['properties'] = {
+                    "bld_use": curusen,
+                    "bld_numLevels": curlevels
+                }
+                # add to calculation result
                 if curusen in typejs["buildinguses"]["living"]:
                     bld_living += gridDef.cellSize * gridDef.cellSize * (curlevels - 1)
                 if curusen in typejs["buildinguses"]["commerce"]:
@@ -169,6 +180,9 @@ def run(endpoint=-1, token=None):
             if curuse in typejs["openspacetypes"]["playgrounds"]:
                 os_play += gridDef.cellSize * gridDef.cellSize
 
+    geojson = json.loads(makeGeoJSONBody())
+    # add groundFloorFeatures after upperFloorsFeatures - they get rendered on top in mapbox
+    geojson['features']= upperFloorsFeatures + groundFloorFeatures
     remove_empty_cells_from_geojson(geojson)
 
     data = {"living": bld_living, "living_expected": 400000,
@@ -184,18 +198,12 @@ def run(endpoint=-1, token=None):
     sendToCityIO(data, endpoint, token)
 
 
-def makeGeoJSON(gridData, cityio):
-    resultjson = "{\"type\": \"FeatureCollection\",\"features\": [" # geojson front matter
+def makeGeoJSONBody():
+    return "{\"type\": \"FeatureCollection\",\"features\": []}" # geojson front matter
 
-    # append features for all grid cells
-    resultjson += appendPointFeatures(gridData, cityio)
-
-    resultjson += "]}" # geojson end matter
-    return resultjson
-
-def appendPointFeatures(gridData, cityio):
+def makePointFeatures(gridData, cityio):
     filledGrid = list(gridData)
-    resultjson = ""
+    resultjson = "["  # opening the array
 
     proj = Transformer.from_crs(getFromCfg("compute_crs"), getFromCfg("output_crs"))
     for idx in range(len(filledGrid)):
@@ -211,6 +219,8 @@ def appendPointFeatures(gridData, cityio):
         resultjson +=","
 
     resultjson = resultjson[:-1] # trim trailing comma
+    resultjson += "]" # closing the array
+
     return resultjson
 
 
