@@ -32,6 +32,9 @@ class Table:
     def Local2Geo(self, x, y):
         bearing = self.tablerotation
 
+        x += 0.5 # connect midpoints
+        y += 0.5
+
         x *= self.cellSize
         y *= -self.cellSize  # flip y axis (for northern hemisphere)
 
@@ -176,6 +179,7 @@ def run(endpoint=-1, token=None):
             "playgrounds": os_play, "playgrounds_expected": 10000,
             "geojson": geojson,
             "grid_hash": gridHash}
+    
     # writeFile("test.json",json.dumps(geojson))
     sendToCityIO(data, endpoint, token)
 
@@ -200,10 +204,10 @@ def appendPointFeatures(gridData, cityio):
 
         properties = {}
 
-        centerPoint = cityio.Local2Geo((x + 0.5),(y + 0.5)) # upper left
-        centerPoint = proj.transform(centerPoint[1],centerPoint[0])
+        centerPoint = cityio.Local2Geo(x,y)
+        centerPoint = proj.transform(centerPoint[0],centerPoint[1])
 
-        resultjson += PolyToGeoJSON(centerPoint, idx, properties) # append feature, closes loop
+        resultjson += PolyToGeoJSON(centerPoint, idx, properties) # append feature
         resultjson +=","
 
     resultjson = resultjson[:-1] # trim trailing comma
