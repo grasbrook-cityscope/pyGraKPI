@@ -456,7 +456,6 @@ class Table:
         new_x = x * math.cos(math.radians(bearing)) - y * math.sin(math.radians(bearing))
         new_y = x * math.sin(math.radians(bearing)) + y * math.cos(math.radians(bearing))
 
-        print( (new_x + self.origin[0], new_y + self.origin[1]))
         # convert to geo coords
         return (new_x + self.origin[0], new_y + self.origin[1])
 
@@ -616,43 +615,24 @@ def appendPolyFeatures(gridData, cityio):
 
         properties = {}
 
-        pointlist = []
-
         fromPoint = cityio.Local2Geo((x +0.5),(y +0.5)) # upper left
         fromPoint = proj.transform(fromPoint[0],fromPoint[1])
 
-        print(fromPoint)
-        exit()
-        pointlist.append(fromPoint)
-
-        # toPoint = cityio.Local2Geo(x+1,y) # upper right
-        # toPoint = proj.transform(toPoint[0],toPoint[1])
-        # pointlist.append(toPoint)
-        # toPoint = cityio.Local2Geo(x+1,y+1) # bottom right
-        # toPoint = proj.transform(toPoint[0],toPoint[1])
-        # pointlist.append(toPoint)
-        # toPoint = cityio.Local2Geo(x,y+1) # bottom left
-        # toPoint = proj.transform(toPoint[0],toPoint[1])
-        # pointlist.append(toPoint)
-
-        resultjson += PolyToGeoJSON(pointlist, idx, properties) # append feature, closes loop
+        resultjson += PolyToGeoJSON(fromPoint, idx, properties) # append feature, closes loop
         resultjson +=","
 
     resultjson = resultjson[:-1] # trim trailing comma
     return resultjson
 
 
-def PolyToGeoJSON(points, id, properties):
+def PolyToGeoJSON(point, id, properties):
     ret = "{\"type\": \"Feature\",\"id\": \""
     ret += str(id)
-    ret += "\",\"geometry\": {\"type\": \"Polygon\",\"coordinates\": [["
+    ret += "\",\"geometry\": {\"type\": \"Point\",\"coordinates\": ["
 
-    # lat,lon order
-    for p in points:
-        ret+="["+str(p[1])+","+str(p[0])+"],"
-    ret+="["+str(points[0][1])+","+str(points[0][0])+"]" # closed ring, last one without trailing comma
+    ret += str(point[0]) + "," + str(point[1])
 
-    ret += "]]},"
+    ret += "]},"
     ret += "\"properties\": {"
     for key in properties: # properties to string
         ret += "\""+key+"\""
