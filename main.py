@@ -456,6 +456,7 @@ class Table:
         new_x = x * math.cos(math.radians(bearing)) - y * math.sin(math.radians(bearing))
         new_y = x * math.sin(math.radians(bearing)) + y * math.cos(math.radians(bearing))
 
+        print( (new_x + self.origin[0], new_y + self.origin[1]))
         # convert to geo coords
         return (new_x + self.origin[0], new_y + self.origin[1])
 
@@ -581,7 +582,7 @@ def run(endpoint=-1, token=None):
             if curuse in typejs["openspacetypes"]["playgrounds"]:
                 os_play += gridDef.cellSize * gridDef.cellSize
 
-    remove_empty_cells_from_geojson(geojson)
+    #remove_empty_cells_from_geojson(geojson)
 
     data = {"living": bld_living, "living_expected": 400000,
             "commerce": bld_commerce, "commerce_expected": 550000,
@@ -599,12 +600,12 @@ def makeGeoJSON(gridData, cityio):
     resultjson = "{\"type\": \"FeatureCollection\",\"features\": [" # geojson front matter
 
     # append features for all grid cells
-    resultjson += appendPointFeatures(gridData, cityio)
+    resultjson += appendPolyFeatures(gridData, cityio)
 
     resultjson += "]}" # geojson end matter
     return resultjson
 
-def appendPointFeatures(gridData, cityio):
+def appendPolyFeatures(gridData, cityio):
     filledGrid = list(gridData)
     resultjson = ""
 
@@ -615,25 +616,43 @@ def appendPointFeatures(gridData, cityio):
 
         properties = {}
 
-        centerPoint = cityio.Local2Geo((x + 0.5),(y + 0.5)) # upper left
-        centerPoint = proj.transform(centerPoint[1],centerPoint[0])
+        pointlist = []
 
-        resultjson += PolyToGeoJSON(centerPoint, idx, properties) # append feature, closes loop
+        fromPoint = cityio.Local2Geo((x +0.5),(y +0.5)) # upper left
+        fromPoint = proj.transform(fromPoint[0],fromPoint[1])
+
+        print(fromPoint)
+        exit()
+        pointlist.append(fromPoint)
+
+        # toPoint = cityio.Local2Geo(x+1,y) # upper right
+        # toPoint = proj.transform(toPoint[0],toPoint[1])
+        # pointlist.append(toPoint)
+        # toPoint = cityio.Local2Geo(x+1,y+1) # bottom right
+        # toPoint = proj.transform(toPoint[0],toPoint[1])
+        # pointlist.append(toPoint)
+        # toPoint = cityio.Local2Geo(x,y+1) # bottom left
+        # toPoint = proj.transform(toPoint[0],toPoint[1])
+        # pointlist.append(toPoint)
+
+        resultjson += PolyToGeoJSON(pointlist, idx, properties) # append feature, closes loop
         resultjson +=","
 
     resultjson = resultjson[:-1] # trim trailing comma
     return resultjson
 
 
-def PolyToGeoJSON(point, id, properties):
-
+def PolyToGeoJSON(points, id, properties):
     ret = "{\"type\": \"Feature\",\"id\": \""
     ret += str(id)
-    ret += "\",\"geometry\": {\"type\": \"Point\",\"coordinates\": ["
+    ret += "\",\"geometry\": {\"type\": \"Polygon\",\"coordinates\": [["
 
-    ret += str(point[1]) + "," + str(point[0])
+    # lat,lon order
+    for p in points:
+        ret+="["+str(p[1])+","+str(p[0])+"],"
+    ret+="["+str(points[0][1])+","+str(points[0][0])+"]" # closed ring, last one without trailing comma
 
-    ret += "]},"
+    ret += "]]},"
     ret += "\"properties\": {"
     for key in properties: # properties to string
         ret += "\""+key+"\""
@@ -651,13 +670,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print("endpoint", args.endpoint)
 
-    token = None
-    # try:
-    #     with open("token.txt") as f:
-    #         token = f.readline()
-    #     if token == "": token = None  # happens with empty file
-    # except IOError:
-    #     token = None
+    try:
+        with open("token.txt") as f:
+            token = f.readline()
+        if token == "": token = None  # happens with empty file
+    except IOError:
+        token = None
 
     oldHash = ""
 
