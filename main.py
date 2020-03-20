@@ -144,10 +144,10 @@ def run(endpoint=-1, token=None):
             # ground floor uses
             if curuse1 and curlevels > 0:
                 # add to visualization features
-                groundFloorFeatures[cell_id]['properties'] = {
-                    "bld_use": curuse1,
-                    "bld_numLevels": 0
-                }
+                if curuse1 != curusen:
+                    groundFloorFeatures[cell_id]['properties'] = {
+                        "bld_useGround": curuse1,
+                    }
                 # add to calculation result
                 if curuse1 in typejs["buildinguses"]["living"]:
                     bld_living += gridDef.cellSize * gridDef.cellSize
@@ -251,12 +251,12 @@ if __name__ == "__main__":
     print("endpoint", args.endpoint)
 
     token = None
-    try:
-        with open("token.txt") as f:
-            token = f.readline()
-        if token == "": token = None #  happens with empty file
-    except IOError:
-        token = None
+    # try:
+    #     with open("token.txt") as f:
+    #         token = f.readline()
+    #     if token == "": token = None #  happens with empty file
+    # except IOError:
+    #     token = None
 
     oldHash = ""
 
