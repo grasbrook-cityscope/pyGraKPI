@@ -150,6 +150,7 @@ if __name__ == "__main__":
     try:
         with open("token.txt") as f:
             token = f.readline()
+            token.strip() # remove line breaks and stuff
         if token == "": token = None  # happens with empty file
     except IOError:
         token = None
