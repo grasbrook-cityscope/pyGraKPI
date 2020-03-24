@@ -251,12 +251,12 @@ if __name__ == "__main__":
     print("endpoint", args.endpoint)
 
     token = None
-    # try:
-    #     with open("token.txt") as f:
-    #         token = f.readline()
-    #     if token == "": token = None #  happens with empty file
-    # except IOError:
-    #     token = None
+    try:
+        with open("token.txt") as f:
+            token = f.readline()
+        if token == "": token = None #  happens with empty file
+    except IOError:
+        token = None
 
     oldHash = ""
 
