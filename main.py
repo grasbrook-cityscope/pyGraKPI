@@ -38,7 +38,7 @@ def getCurrentState(topic="", endpoint=-1, token=None):
         if token is None:
             r = requests.get(get_address, headers={'Content-Type': 'application/json'})
         else:
-            r = requests.get(get_address, headers={'Content-Type': 'application/json', 'Authorization': 'Bearer '+token})
+            r = requests.get(get_address, headers={'Content-Type': 'application/json', 'Authorization': 'Bearer '+token.strip()})
         
         if not r.status_code == 200:
             print("could not get from cityIO")
@@ -61,7 +61,7 @@ def sendToCityIO(data, endpoint=-1, token=None):
         if token is None:
             r = requests.post(post_address, json=data, headers={'Content-Type': 'application/json'})
         else:
-            r = requests.post(post_address, json=data, headers={'Content-Type': 'application/json', 'Authorization': 'Bearer '+token})
+            r = requests.post(post_address, json=data, headers={'Content-Type': 'application/json', 'Authorization': 'Bearer '+token.strip()})
         print(r)
         if not r.status_code == 200:
             print("could not post result to cityIO", post_address)
