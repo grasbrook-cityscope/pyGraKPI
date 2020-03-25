@@ -19,5 +19,8 @@
         "https://cityio.media.mit.edu/api/table/update/grasbrook_herings/kpi_gfa",
         "https://cityio.media.mit.edu/api/table/update/grasbrook_eis/kpi_gfa",
         "https://cityio.media.mit.edu/api/table/update/grasbrook_mantel/kpi_gfa"
-    ]
+    ],
+    "input_crs" : 4326,
+    "compute_crs": 32632,
+    "output_crs": 4326
 }

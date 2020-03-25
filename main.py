@@ -2,8 +2,10 @@ import json
 import time
 import requests
 import argparse
+import math
 from typing import Optional
 
+from pyproj import Transformer
 
 class Table:
     cellSize = 0
@@ -18,7 +20,30 @@ class Table:
         ret.nrows = data["spatial"]["nrows"]
         ret.mapping = data["mapping"]["type"]
         ret.typeidx = data["block"].index("type")
+        ret.tablerotation = data["spatial"]["rotation"]
+
+        proj = Transformer.from_crs(getFromCfg("input_crs"), getFromCfg("compute_crs"))
+        ret.origin = proj.transform(data["spatial"]["latitude"], data["spatial"]["longitude"])
         return ret
+
+    def updateGrid(self, endpoint=-1, token=None):
+        self.grid = getCurrentState("grid", endpoint, token)
+
+    def Local2Geo(self, x, y):
+        bearing = self.tablerotation
+
+        x += 0.5 # connect midpoints
+        y += 0.5
+
+        x *= self.cellSize
+        y *= -self.cellSize  # flip y axis (for northern hemisphere)
+
+        # rotate and scale
+        new_x = x * math.cos(math.radians(bearing)) - y * math.sin(math.radians(bearing))
+        new_y = x * math.sin(math.radians(bearing)) + y * math.cos(math.radians(bearing))
+
+        # convert to geo coords
+        return (new_x + self.origin[0], new_y + self.origin[1])
 
 
 def getFromCfg(key: str) -> str:
@@ -74,6 +99,13 @@ def sendToCityIO(data, endpoint=-1, token=None):
         return
 
 
+def remove_empty_cells_from_geojson(geojson):
+    geojson['features'] = [feature for feature in geojson['features'] if not feature['properties'] == {}]
+
+def writeFile(filepath, data):
+    f= open(filepath,"w+")
+    f.write(data)
+
 def run(endpoint=-1, token=None):
     gridDef = Table.fromCityIO(getCurrentState("header", endpoint, token))
     if not gridDef:
@@ -82,6 +114,9 @@ def run(endpoint=-1, token=None):
 
     gridData = getCurrentState("grid", endpoint, token)
     gridHash = getCurrentState("meta/hashes/grid", endpoint, token)
+    groundFloorFeatures = json.loads(makePointFeatures(gridData, gridDef))
+    upperFloorsFeatures = json.loads(makePointFeatures(gridData, gridDef))
+
 
     typejs = {}
     with open("typedefs.json") as file:
@@ -94,16 +129,26 @@ def run(endpoint=-1, token=None):
     os_sports = 0
     os_play = 0
 
-    for cell in gridData:
+    for cell_id, cell in enumerate(gridData):
         if (cell is None or not "type" in gridDef.mapping[cell[gridDef.typeidx]]): continue
         curtype = gridDef.mapping[cell[gridDef.typeidx]]["type"]
 
         if curtype == "building":
+
             curuse1 = gridDef.mapping[cell[gridDef.typeidx]]["bld_useGround"]
             curusen = gridDef.mapping[cell[gridDef.typeidx]]["bld_useUpper"]
             curlevels = gridDef.mapping[cell[gridDef.typeidx]]["bld_numLevels"]
 
+
+
+            # ground floor uses
             if curuse1 and curlevels > 0:
+                # add to visualization features
+                if curuse1 != curusen:
+                    groundFloorFeatures[cell_id]['properties'] = {
+                        "bld_useGround": curuse1,
+                    }
+                # add to calculation result
                 if curuse1 in typejs["buildinguses"]["living"]:
                     bld_living += gridDef.cellSize * gridDef.cellSize
                 if curuse1 in typejs["buildinguses"]["commerce"]:
@@ -111,7 +156,14 @@ def run(endpoint=-1, token=None):
                 if curuse1 in typejs["buildinguses"]["special"]:
                     bld_special += gridDef.cellSize * gridDef.cellSize
 
+            # upper floor uses
             if curusen and curlevels > 1:
+                # add to visualization features
+                upperFloorsFeatures[cell_id]['properties'] = {
+                    "bld_use": curusen,
+                    "bld_numLevels": curlevels
+                }
+                # add to calculation result
                 if curusen in typejs["buildinguses"]["living"]:
                     bld_living += gridDef.cellSize * gridDef.cellSize * (curlevels - 1)
                 if curusen in typejs["buildinguses"]["commerce"]:
@@ -128,18 +180,69 @@ def run(endpoint=-1, token=None):
             if curuse in typejs["openspacetypes"]["playgrounds"]:
                 os_play += gridDef.cellSize * gridDef.cellSize
 
+    geojson = json.loads(makeGeoJSONBody())
+    # add groundFloorFeatures after upperFloorsFeatures - they get rendered on top in mapbox
+    geojson['features']= upperFloorsFeatures + groundFloorFeatures
+    remove_empty_cells_from_geojson(geojson)
+
     data = {"living": bld_living, "living_expected": 400000,
             "commerce": bld_commerce, "commerce_expected": 550000,
             "special": bld_special, "special_expected": 30000,
             "green": os_green, "green_expected": 80000,
             "sports": os_sports, "sports_expected": 10000,
             "playgrounds": os_play, "playgrounds_expected": 10000,
+            "geojson": geojson,
             "grid_hash": gridHash}
 
-    print(data)
-
+    # writeFile("test.json",json.dumps(geojson))
     sendToCityIO(data, endpoint, token)
 
+
+def makeGeoJSONBody():
+    return "{\"type\": \"FeatureCollection\",\"features\": []}" # geojson front matter
+
+def makePointFeatures(gridData, cityio):
+    filledGrid = list(gridData)
+    resultjson = "["  # opening the array
+
+    proj = Transformer.from_crs(getFromCfg("compute_crs"), getFromCfg("output_crs"))
+    for idx in range(len(filledGrid)):
+        x = idx % cityio.ncols
+        y = idx // cityio.ncols
+
+        properties = {}
+
+        centerPoint = cityio.Local2Geo(x,y)
+        centerPoint = proj.transform(centerPoint[0],centerPoint[1])
+
+        resultjson += PolyToGeoJSON(centerPoint, idx, properties) # append feature
+        resultjson +=","
+
+    resultjson = resultjson[:-1] # trim trailing comma
+    resultjson += "]" # closing the array
+
+    return resultjson
+
+
+def PolyToGeoJSON(point, id, properties):
+
+    ret = "{\"type\": \"Feature\",\"id\": \""
+    ret += str(id)
+    ret += "\",\"geometry\": {\"type\": \"Point\",\"coordinates\": ["
+
+    ret += str(point[1]) + "," + str(point[0])
+
+    ret += "]},"
+    ret += "\"properties\": {"
+    for key in properties: # properties to string
+        ret += "\""+key+"\""
+        ret += ":"
+        ret += str(properties[key])
+        ret += ","
+    if len(properties) > 0:
+        ret=ret[:-1] # delete trailing comma after properties
+    ret += "}}"
+    return ret
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Calculate KPIs on cityIO according to Grasbrook Auslobung.')
@@ -147,6 +250,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print("endpoint", args.endpoint)
 
+    token = None
     try:
         with open("token.txt") as f:
             token = f.readline()
