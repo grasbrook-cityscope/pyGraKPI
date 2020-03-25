@@ -63,7 +63,7 @@ def getCurrentState(topic="", endpoint=-1, token=None):
         if token is None:
             r = requests.get(get_address, headers={'Content-Type': 'application/json'})
         else:
-            r = requests.get(get_address, headers={'Content-Type': 'application/json', 'Authorization': 'Bearer '+token})
+            r = requests.get(get_address, headers={'Content-Type': 'application/json', 'Authorization': 'Bearer '+token.strip()})
         
         if not r.status_code == 200:
             print("could not get from cityIO")
@@ -73,7 +73,7 @@ def getCurrentState(topic="", endpoint=-1, token=None):
         return r.json()
     
     except requests.exceptions.RequestException as e:
-        print("CityIO error while GETting!" + e)
+        print("CityIO error while GETting!" + str(e))
         return {}
 
 def sendToCityIO(data, endpoint=-1, token=None):
@@ -86,7 +86,7 @@ def sendToCityIO(data, endpoint=-1, token=None):
         if token is None:
             r = requests.post(post_address, json=data, headers={'Content-Type': 'application/json'})
         else:
-            r = requests.post(post_address, json=data, headers={'Content-Type': 'application/json', 'Authorization': 'Bearer '+token})
+            r = requests.post(post_address, json=data, headers={'Content-Type': 'application/json', 'Authorization': 'Bearer '+token.strip()})
         print(r)
         if not r.status_code == 200:
             print("could not post result to cityIO", post_address)
@@ -95,7 +95,7 @@ def sendToCityIO(data, endpoint=-1, token=None):
             print("Successfully posted to cityIO", post_address, r.status_code)
 
     except requests.exceptions.RequestException as e:
-        print("CityIO error while POSTing!" + e)
+        print("CityIO error while POSTing!" + str(e))
         return
 
 
@@ -193,7 +193,7 @@ def run(endpoint=-1, token=None):
             "playgrounds": os_play, "playgrounds_expected": 10000,
             "geojson": geojson,
             "grid_hash": gridHash}
-    
+
     # writeFile("test.json",json.dumps(geojson))
     sendToCityIO(data, endpoint, token)
 
@@ -254,7 +254,8 @@ if __name__ == "__main__":
     try:
         with open("token.txt") as f:
             token = f.readline()
-        if token == "": token = None #  happens with empty file
+            token.strip() # remove line breaks and stuff
+        if token == "": token = None  # happens with empty file
     except IOError:
         token = None
 
